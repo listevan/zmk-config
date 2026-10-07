@@ -1,0 +1,60 @@
+/*
+ * RGB LED chain for the Lily58 on a nice!nano v2.
+ *
+ * The stock ZMK Lily58 shield has no LED strip in its devicetree, so this
+ * overlay adds one. The Lily58 PCB routes LED data-in to the Pro Micro "TX"
+ * pin (D1), which is P0.06 on the nice!nano. ZMK drives WS2812/SK6812 LEDs
+ * over SPI3 with MOSI on that pin, following the zmk.dev underglow guide.
+ */
+
+#include <dt-bindings/led/led.h>
+
+&pinctrl {
+    spi3_default: spi3_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
+        };
+    };
+
+    spi3_sleep: spi3_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi3 {
+    compatible = "nordic,nrf-spim";
+    status = "okay";
+
+    pinctrl-0 = <&spi3_default>;
+    pinctrl-1 = <&spi3_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    led_strip: ws2812@0 {
+        compatible = "worldsemi,ws2812-spi";
+
+        /* SPI */
+        reg = <0>; /* ignored, but required by the SPI bindings */
+        spi-max-frequency = <4000000>;
+
+        /* WS2812 / SK6812 */
+        /*
+         * LEDs per half. 36 covers every Lily58 variant (29 per-key + up to
+         * 7 underglow); extra frames past the end of a shorter chain are
+         * harmless. Lower this to the real count if you want effects like
+         * swirl/spectrum to span the strip exactly.
+         */
+        chain-length = <36>;
+        spi-one-frame = <0x70>;
+        spi-zero-frame = <0x40>;
+        color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+    };
+};
+
+/ {
+    chosen {
+        zmk,underglow = &led_strip;
+    };
+};
